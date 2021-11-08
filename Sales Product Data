@@ -1,0 +1,55 @@
+--I demonstrate below the following:
+	--Window Functions
+	--Nested Queries
+	--JOINS
+	--Summary Information
+
+--What are the Top 10 best selling products?
+Select 
+	Top 10 ProductName
+FROM
+(Select 
+	dense_rank() over (Order by t_sale desc) as Rank,
+	ProductId, 
+	ProductName,
+	t_sale
+From
+(Select	s.ProductId,
+		p.ProductName, 
+		SUM(UnitPrice*Quantity) as t_sale 
+From Sales s
+JOIN products p On s.ProductId = p.ProductId
+GROUP BY s.ProductId,p.ProductName) a)b
+Order by t_sale desc
+
+
+--What is the best selling store?
+
+With CTE as(Select StoreName, i.StoreId, Sum(UnitPrice*Quantity) as t_sales From Sales s
+JOIN store_id i on s.StoreId = i.StoreId
+Group by i.StoreId,StoreName)
+Select TOP 1 StoreName From CTE
+GROUP BY StoreName, t_sales
+Order by t_sales desc
+
+--What are the 4th Quarter Sales in 2020 for Renys?
+Select StoreName,s.StoreId,Sum(UnitPrice*Quantity) as sales From Sales s
+JOIN store_id i On s.StoreId = i.StoreId
+Where DATEPART(Year, Date)=2020 AND DATEPART(Quarter, Date) = 4 AND StoreName = 'Renys'
+Group by s.StoreId, StoreName
+
+
+
+--Summary Information
+With CTE as(select StoreId,Count(SalesId) as n_transactions, 
+MIN(UnitPrice*Quantity) as min, MAX(UnitPrice*Quantity) as max, 
+SUM(UnitPrice*Quantity) as sale_total from Sales
+GROUP BY StoreId),
+
+CTE1 as (select StoreId, StoreName From store_id)
+
+Select DENSE_RANK() Over (Order by sale_total desc) as Rank, 
+cte.StoreId, StoreName, n_transactions, MIN(min) as min_sales, MAX(max) as max_sales,sale_total 
+From CTE
+INNER JOIN CTE1 ON CTE1.StoreId = CTE.StoreId
+Group by StoreName, CTE.StoreId, sale_total, n_transactions
